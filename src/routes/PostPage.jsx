@@ -1,10 +1,12 @@
-import React, { Component, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import Comment from "../components/Comment";
 import "../styles/PostPage.css";
 import { useParams } from "react-router-dom";
 import supabase from "../config/supabaseClient";
 
 const PostPage = () => {
     const [postDetails, setDetails] = useState(null);
+    const [currInput, setCurrInput] = useState("");
     const params = useParams();
 
     useEffect(() => {
@@ -21,24 +23,65 @@ const PostPage = () => {
             Weather (weather_id, weather_name), 
             ActivityType (activity_type_id, activity_type_name), 
             Duration (duration_id, duration), 
+            Comments (comment_id, user_id, comment, commented_at, Users (username)), 
             price, 
             likes
             `)
             .eq('post_id', parseInt(params.id));
 
-            setDetails({
-                "title": data[0].title, 
-                "description" : data[0].description, 
-                "city": data[0].Cities.city_name, 
-                "weather": data[0].Weather.weather_name,
-                "activityType": data[0].ActivityType.activity_type_name,
-                "duration": data[0].Duration.duration
-            });
+            if (data && data.length > 0) {
+                const post = data[0];
+                setDetails({
+                    ...post,
+                    "city": post.Cities.city_name, 
+                    "weather": post.Weather.weather_name,
+                    "activityType": post.ActivityType.activity_type_name,
+                    "duration": post.Duration.duration,
+                    "comments": post.Comments
+                });
+            }
         };
         getPostInfo();
     }, [params])
     
-    console.log(postDetails)
+    console.log(postDetails);
+
+    const handleChange = (e) => {
+        setCurrInput(e.target.value)
+    }
+
+    const handlePostComment = async () => {
+        if (currInput === "") return; // Don't allow empty input
+    
+        let uuid = JSON.parse(sessionStorage.getItem('token')).user.id;
+    
+        const { data, error } = await supabase
+            .from("Comments")
+            .insert([{
+                post_id: postDetails.post_id,
+                user_id: uuid, 
+                comment: currInput
+            }]);
+    
+        if (data) {
+            const newComment = {
+                comment_id: data[0].id, 
+                user_id: uuid,
+                comment: currInput,
+                commented_at: new Date().toISOString() 
+            };
+            setDetails({
+                ...postDetails,
+                comments: [...postDetails.comments, newComment]
+            });
+        } else if (error) {
+            console.error(error);
+            alert('Failed to post comment. Please try again.'); 
+        }
+    
+        setCurrInput("");
+        window.location.reload(false);
+    };
 
     return(
         <div className="PostPage">
@@ -52,6 +95,34 @@ const PostPage = () => {
             </div>
             
             :''}
+
+            <form>
+                <label htmlFor="comment_input">Share your thoughts: </label>
+
+                <input
+                type="text"
+                className="comment-input"
+                name="comment_input"
+                value={currInput} 
+                onChange={handleChange}
+                />
+
+                <button 
+                type="button" 
+                className="post-comment-btn" 
+                onClick={handlePostComment}>Post</button>
+            </form>
+
+            <div className="comments-container">
+            {postDetails && postDetails.comments && postDetails.comments.map(comment => (
+                <Comment 
+                    key={comment.comment_id} 
+                    username={comment.Users.username} 
+                    comment={comment.comment} 
+                    timestamp={comment.commented_at}
+                />
+                ))}
+            </div>
         </div>
     )
 }
