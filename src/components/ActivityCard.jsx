@@ -15,25 +15,25 @@ const ActivityCard = ({post}) => {
     }, [post]);
     
 
-    // In this component we can make a like feature, that will take the current likes, display them and update them if you click on the button
-    const handleLikeClick = async (likes) => {
-        setLikes((prevLikes) => prevLikes + 1);
-        const { data, error } = await supabase
-    .from('Posts')
-    .update({ likes: likes + 1 })
-    .eq('post_id', post.post_id); // Assuming 'post_id' is the primary key
-
-  if (data) {
-    console.log(data);
-    // Optionally, update the local state with the updated data from the server
-    // setLikes(data[0].likes);
-  }
-
-  if (error) {
-    console.error(error);
-    // Handle error (notify the user, rollback the local state, etc.)
-  }
-};
+    const handleLikeClick = async () => {
+        setLikes((prevLikes) => {
+            const newLikes = prevLikes + 1;
+            supabase
+                .from('Posts')
+                .update({ likes: newLikes })
+                .eq('post_id', post.post_id)
+                .then(({ data, error }) => {
+                    if (data) {
+                        console.log(data);
+                    }
+                    if (error) {
+                        console.error(error);
+                        setLikes(prevLikes);
+                    }
+                });
+            return newLikes;
+        });
+    };    
 
 
     return (
@@ -71,7 +71,7 @@ const ActivityCard = ({post}) => {
                             </button>
                         </Link>
 
-                        <button className="activity-card-likes-btn">{likes} likes</button>
+                        <button className="activity-card-likes-btn" onClick={handleLikeClick}>{likes} likes</button>
                     </div>
                 </div>
             : ""}
